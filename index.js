@@ -1,5 +1,5 @@
 import express from "express";
-import pg from "pg";
+import { createClient } from '@supabase/supabase-js';
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -10,31 +10,26 @@ const port = process.env.PORT || 3000;
 // Set EJS as the view engine
 app.set('view engine', 'ejs');
 
-// Database Connection
-const db = new pg.Client({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
-
-db.connect((err) => {
-  if (err) {
-    console.error("Database connection error:", err.stack);
-  } else {
-    console.log("Connected to the database!");
-  }
-});
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 app.get("/", async (req, res) => {
   try {
-    const result = await db.query("SELECT * FROM items ORDER BY id ASC");
+    const { data: listItems, error } = await supabase
+      .from('items')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) throw error;
+
     res.render("index.ejs", {
       listTitle: "Today",
-      listItems: result.rows,
+      listItems: listItems,
     });
   } catch (err) {
     console.error(err);
@@ -45,7 +40,12 @@ app.get("/", async (req, res) => {
 app.post("/add", async (req, res) => {
   const item = req.body.newItem;
   try {
-    await db.query("INSERT INTO items (title) VALUES ($1)", [item]);
+    const { error } = await supabase
+      .from('items')
+      .insert([{ title: item }]);
+
+    if (error) throw error;
+
     res.redirect("/");
   } catch (err) {
     console.error(err);
@@ -56,7 +56,13 @@ app.post("/add", async (req, res) => {
 app.post("/edit", async (req, res) => {
   const { updatedItemTitle: item, updatedItemId: id } = req.body;
   try {
-    await db.query("UPDATE items SET title = $1 WHERE id = $2", [item, id]);
+    const { error } = await supabase
+      .from('items')
+      .update({ title: item })
+      .eq('id', id);
+
+    if (error) throw error;
+
     res.redirect("/");
   } catch (err) {
     console.error(err);
@@ -67,7 +73,13 @@ app.post("/edit", async (req, res) => {
 app.post("/delete", async (req, res) => {
   const { deleteItemId: id } = req.body;
   try {
-    await db.query("DELETE FROM items WHERE id = $1", [id]);
+    const { error } = await supabase
+      .from('items')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
     res.redirect("/");
   } catch (err) {
     console.error(err);
@@ -78,4 +90,3 @@ app.post("/delete", async (req, res) => {
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
-
