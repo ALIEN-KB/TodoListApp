@@ -7,6 +7,9 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Set EJS as the view engine
+app.set('view engine', 'ejs');
+
 // Database Connection
 const db = new pg.Client({
   connectionString: process.env.DATABASE_URL,
@@ -75,3 +78,4 @@ app.post("/delete", async (req, res) => {
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+
